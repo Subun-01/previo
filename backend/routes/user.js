@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { generateRoadmapWithLLM } = require('../agents/roadmapAgent');
 
 // Middleware to extract authenticated user from token (simplified)
 const getUserFromToken = async (req, res, next) => {
@@ -15,6 +16,60 @@ const getUserFromToken = async (req, res, next) => {
   
   next();
 };
+
+// Route to generate a personalized study roadmap
+router.post('/generate-roadmap', getUserFromToken, async (req, res) => {
+  const {durationWeeks } = req.body;
+  const { user } = req;
+
+  // Fetch latest user preferences (from roadmaps table)
+  const { data: latestRoadmap, error: fetchError } = await req.supabase
+    .from('roadmaps')
+    .select('data')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+
+
+    if (fetchError || !latestRoadmap) {
+    return res.status(400).json({ error: "No preferences found. Please save preferences first." });
+  }
+
+  const { targetRole, weakTopics } = latestRoadmap.data;
+  if (!targetRole || !weakTopics || !weakTopics.length) {
+    return res.status(400).json({ error: "Incomplete preferences. Please provide target role and weak topics." });
+  }
+
+  try {
+    // Generate roadmap using LLM
+    const roadmap = await generateRoadmapWithLLM({
+      targetRole,
+      weakTopics,
+      durationWeeks: durationWeeks || 6 // Default to 6 weeks if not provided
+    });
+
+    // Save generated roadmap to roadmaps table
+    const { data, error: saveError } = await req.supabase
+      .from('roadmaps')
+      .insert([
+        {
+          user_id: user.id,
+          data: roadmap
+        }
+      ])
+      .select();
+
+    if (saveError) return res.status(400).json({ error: saveError.message });
+
+    res.json({ roadmap: data[0] });
+  } catch (error) {
+    console.error("Roadmap generation error:", error);
+    res.status(500).json({ error: "Failed to generate roadmap. " + error.message });
+  }
+
+});
 
 // Save preferences
 router.post('/preferences', getUserFromToken, async (req, res) => {
