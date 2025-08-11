@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { generateRoadmapWithLLM } = require('../agents/roadmapAgent');
 
+
+
+
 // Middleware to extract authenticated user from token (simplified)
 const getUserFromToken = async (req, res, next) => {
   const token = req.headers['authorization']?.replace('Bearer ', '');
@@ -13,34 +16,44 @@ const getUserFromToken = async (req, res, next) => {
 
   req.user = data.user;
 //   console.log(`Authenticated user: ${req.user.id}`);
-  
   next();
 };
 
+
 // Route to generate a personalized study roadmap
 router.post('/generate-roadmap', getUserFromToken, async (req, res) => {
-  const {durationWeeks } = req.body;
+  const { targetRole, durationWeeks } = req.body;
   const { user } = req;
+// console.log(targetRole);
 
-  // Fetch latest user preferences (from roadmaps table)
-  const { data: latestRoadmap, error: fetchError } = await req.supabase
-    .from('roadmaps')
-    .select('data')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+    // Fetch user preferences for the given targetRole (from roadmaps table)
+    const { data: prefRows, error: fetchError } = await req.supabase
+      .from('roadmaps')
+      .select('id,preference')
+      .eq('user_id', user.id);
 
+    if (fetchError) {
+      return res.status(400).json({ error: "Error fetching preferences." });
+    }
 
+    // console.log(prefRows);
+    
+    // Find the row with the matching targetRole
+    const latestRoadmap = Array.isArray(prefRows)
+      ? prefRows.find(row => row.preference && row.preference.targetRole === targetRole)
+      : null;
 
-    if (fetchError || !latestRoadmap) {
-    return res.status(400).json({ error: "No preferences found. Please save preferences first." });
-  }
+    if (!latestRoadmap) {
+      return res.status(400).json({ error: "No preferences found for the given target role. Please save preferences first." });
+    }
 
-  const { targetRole, weakTopics } = latestRoadmap.data;
-  if (!targetRole || !weakTopics || !weakTopics.length) {
-    return res.status(400).json({ error: "Incomplete preferences. Please provide target role and weak topics." });
-  }
+    const { weakTopics } = latestRoadmap.preference || {};
+    if (!targetRole || !weakTopics || !weakTopics.length) {
+      return res.status(400).json({ error: "Incomplete preferences. Please provide target role and weak topics." });
+    }
+
+    console.log(`Generating roadmap for target role: ${targetRole}, preferences: ${JSON.stringify(latestRoadmap.preference)}`);
+    
 
   try {
     // Generate roadmap using LLM
@@ -49,16 +62,13 @@ router.post('/generate-roadmap', getUserFromToken, async (req, res) => {
       weakTopics,
       durationWeeks: durationWeeks || 6 // Default to 6 weeks if not provided
     });
+    // const roadmap = null;
 
-    // Save generated roadmap to roadmaps table
+    // Update the generated roadmap in the roadmaps table for the user
     const { data, error: saveError } = await req.supabase
       .from('roadmaps')
-      .insert([
-        {
-          user_id: user.id,
-          data: roadmap
-        }
-      ])
+      .update({ data: roadmap })
+      .eq('id', latestRoadmap.id)
       .select();
 
     if (saveError) return res.status(400).json({ error: saveError.message });
@@ -73,22 +83,50 @@ router.post('/generate-roadmap', getUserFromToken, async (req, res) => {
 
 // Save preferences
 router.post('/preferences', getUserFromToken, async (req, res) => {
-  const { targetRole, weakTopics } = req.body;
+  const { targetRole, weakTopics, durationWeeks } = req.body;
   const { user } = req;
+  
+    // Check for existing roadmap for this user and targetRole
+    const { data: existingRows, error: fetchError } = await req.supabase
+      .from('roadmaps')
+      .select('id, preference')
+      .eq('user_id', user.id);
 
-  // Save to roadmaps table (MVP: just store preferences, roadmap generation comes next)
-  const { data, error } = await req.supabase
-    .from('roadmaps')
-    .insert([
-      {
-        user_id: user.id,
-        data: { targetRole, weakTopics }
-      }
-    ])
-    .select();
+    if (fetchError) {
+      return res.status(400).json({ error: fetchError.message });
+    }
+
+    // Find if any row has the same targetRole
+    let existing = null;
+    if (Array.isArray(existingRows)) {
+      existing = existingRows.find(row => row.preference && row.preference.targetRole === targetRole);
+    }
+
+  let result, error;
+    if (existing) {
+    // Update existing row if targetRole is the same
+    ({ data: result, error } = await req.supabase
+      .from('roadmaps')
+      .update({ preference: { targetRole, weakTopics, durationWeeks } })
+      .eq('id', existing.id)
+      .select());
+      // console.log("hit1");
+  } else {
+    // Insert new row if targetRole is different or no row exists
+    ({ data: result, error } = await req.supabase
+      .from('roadmaps')
+      .insert([
+        {
+          user_id: user.id,
+          preference: { targetRole, weakTopics, durationWeeks }
+        }
+      ])
+      .select());
+      // console.log("hit2");
+  }
 
   if (error) return res.status(400).json({ error: error.message });
-  res.json({ roadmap: data[0] });
+  res.json({ preference: result[0] });
 });
 
 module.exports = router;
