@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { generateRoadmapWithLLM } = require('../agents/roadmapAgent');
+const { getInstantFeedbackLLM } = require('../agents/feedbackAgent');
+const { saveAttempt } = require('../utils/saveAttempts');
+const { generateQuestionsLLM } = require('../agents/questionGeneratorAgent');
 
 
 
@@ -19,6 +22,58 @@ const getUserFromToken = async (req, res, next) => {
   next();
 };
 
+// Route to get user preferences
+router.post('/preferences', getUserFromToken, async (req, res) => {
+  const { targetRole, weakTopics, durationWeeks } = req.body;
+  const { user } = req;
+  
+    // Check for existing roadmap for this user and targetRole
+    const { data: existingRows, error: fetchError } = await req.supabase
+      .from('roadmaps')
+      .select('id, preference')
+      .eq('user_id', user.id);
+
+    if (fetchError) {
+      return res.status(400).json({ error: fetchError.message });
+    }
+
+    // Find if any row has the same targetRole
+    let existing = null;
+    if (Array.isArray(existingRows)) {
+      existing = existingRows.find(row => row.preference && row.preference.targetRole === targetRole);
+    }
+
+  let result, error;
+    if (existing) {
+    // Update existing row if targetRole is the same
+    ({ data: result, error } = await req.supabase
+      .from('roadmaps')
+      .update({ preference: { targetRole, weakTopics, durationWeeks } })
+      .eq('id', existing.id)
+      .select());
+      // console.log("hit1");
+  } else {
+    // Insert new row if targetRole is different or no row exists
+    ({ data: result, error } = await req.supabase
+      .from('roadmaps')
+      .insert([
+        {
+          user_id: user.id,
+          preference: { targetRole, weakTopics, durationWeeks }
+        }
+      ])
+      .select());
+      // console.log("hit2");
+  }
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ preference: result[0] });
+});
+
+
+/*
+          AGENT-1 ROADMAP AGENT
+*/
 
 // Route to generate a personalized study roadmap
 router.post('/generate-roadmap', getUserFromToken, async (req, res) => {
@@ -81,52 +136,54 @@ router.post('/generate-roadmap', getUserFromToken, async (req, res) => {
 
 });
 
-// Save preferences
-router.post('/preferences', getUserFromToken, async (req, res) => {
-  const { targetRole, weakTopics, durationWeeks } = req.body;
-  const { user } = req;
+
+
+
+/*
+          AGENT-2 Question generating AGENT
+*/
+// POST /api/agent2/generate-questions
+router.post('/generate-questions', getUserFromToken, async (req, res) => {
+  const { targetRole, topic, roadmap, day, numberOfQuestions, questionType } = req.body;
+  console.log("calling generate questions with params:", { targetRole, topic, roadmap, day, numberOfQuestions, questionType });
   
-    // Check for existing roadmap for this user and targetRole
-    const { data: existingRows, error: fetchError } = await req.supabase
-      .from('roadmaps')
-      .select('id, preference')
-      .eq('user_id', user.id);
-
-    if (fetchError) {
-      return res.status(400).json({ error: fetchError.message });
-    }
-
-    // Find if any row has the same targetRole
-    let existing = null;
-    if (Array.isArray(existingRows)) {
-      existing = existingRows.find(row => row.preference && row.preference.targetRole === targetRole);
-    }
-
-  let result, error;
-    if (existing) {
-    // Update existing row if targetRole is the same
-    ({ data: result, error } = await req.supabase
-      .from('roadmaps')
-      .update({ preference: { targetRole, weakTopics, durationWeeks } })
-      .eq('id', existing.id)
-      .select());
-      // console.log("hit1");
-  } else {
-    // Insert new row if targetRole is different or no row exists
-    ({ data: result, error } = await req.supabase
-      .from('roadmaps')
-      .insert([
-        {
-          user_id: user.id,
-          preference: { targetRole, weakTopics, durationWeeks }
-        }
-      ])
-      .select());
-      // console.log("hit2");
+  try {
+    const questions = await generateQuestionsLLM({
+      targetRole, topic, roadmap, day,
+      count: numberOfQuestions, type: questionType
+    });
+    res.json({ questions });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-
-  if (error) return res.status(400).json({ error: error.message });
-  res.json({ preference: result[0] });
 });
+
+// POST /api/agent2/submit-answer
+router.post('/submit-answer', getUserFromToken, async (req, res) => {
+  const { question, answer, topic, day, questionType, roadmap, targetRole} = req.body;
+  const { user } = req;
+  try {
+    const feedbackObj = await getInstantFeedbackLLM(targetRole,question, answer);
+    
+    await saveAttempt({
+      userId: user.id,
+      question,
+      answer,
+      topic,
+      day,
+      questionType,
+      instantFeedback: feedbackObj.feedback,
+      instantScore: feedbackObj.score,
+      roadmap,
+      targetRole
+    });
+    res.json({ feedback: feedbackObj });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
 
 module.exports = router;
