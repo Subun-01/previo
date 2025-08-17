@@ -1,26 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const authController = require('../controllers/authController');
 
-router.post('/register', async (req, res) => {
-  const { email, password } = req.body;
-  const { data, error } = await req.supabase.auth.signUp({
-    email,
-    password,
-  });
+// Register route
+router.post('/register', authController.userRegister);
 
-  if (error) return res.status(400).json({ error: error.message });
-  res.json({ user: data.user });
-});
-
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  const { data, error } = await req.supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (error) return res.status(400).json({ error: error.message });
-  res.json({ user: data.user, session: data.session });
-});
+// Login route
+router.post('/login', authController.userLogin);
 
 module.exports = router;

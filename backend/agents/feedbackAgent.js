@@ -8,12 +8,11 @@ const axios = require('axios');
  */
 async function getInstantFeedbackLLM(targetRole,question, userAnswer) {
   const prompt = `
-You are an expert technical interviewer.
-Role applied: ${targetRole}
-Question: ${question}
+You are an Expert and Strict Technical Interviewer for ${targetRole} role
+Question asked: ${question}
 User's Answer: ${userAnswer}
 Evaluate the answer:
-- verdict: Correct / Incorrect / Partially Correct / Unclear / acceptable
+- verdict: One word verdict (e.g."incorrect", "correct", "partially correct")
 - feedback: One short sentence (max 15 words)
 - score: Integer out of 10
 Return as JSON: { "verdict": "...", "feedback": "...", "score": ... }

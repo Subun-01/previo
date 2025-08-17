@@ -7,18 +7,20 @@ const { createClient } = require('@supabase/supabase-js');
 const userRoutes = require('./routes/user');
 const authRoutes = require('./routes/auth');
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-
 // Setup Supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+// Initialize Express app
+const app = express();
 
+// Middleware
+app.use(cors());
+app.use(express.json());
 // Attach Supabase client to request object
 app.use((req, res, next) => {
   req.supabase = supabase;
   next();
 });
+
 
 // Use routes
 app.use('/api/auth', authRoutes);

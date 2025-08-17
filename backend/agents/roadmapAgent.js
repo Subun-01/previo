@@ -10,24 +10,24 @@ const axios = require('axios');
  */
 function buildRoadmapPrompt({ targetRole, weakTopics, durationWeeks }) {
   return `
-You are a placement preparation assistant for BTech CS students.
+You are a College placement preparation assistant for BTech CS students.
 Create a detailed, week-by-week study roadmap.
 Target role: ${targetRole}
 Weak topics: ${weakTopics.join(', ')}
 Duration: ${durationWeeks} weeks
 
-Each week should list topics and 1–2 free online resources (YouTube, GeeksforGeeks, etc).
+Each week should list topics and subtopics to cover.
 Format output as JSON:
 {
   "targetRole": "${targetRole}",
   "durationWeeks": ${durationWeeks},
   "weeks": [
-    { "week": 1, "topics": [ { "name": "...", "resources": ["..."] } ] },
+    { "week": 1, "topics": [ { "name": "...", "subtopics": ["..."] } ] },
     ...
   ]
 }
-Only output the JSON.
-  `.trim();
+Only output the JSON andstrictly follow above format.Do not include any markdown or code blocks or whitespace before or after the JSON object.
+`.trim();
 }
 
 /**
