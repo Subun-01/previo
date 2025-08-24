@@ -1,7 +1,32 @@
-# Ignore node_modules in both backend and frontend
+# Ignore node_modules in both backend
 backend/node_modules/
-frontend/node_modules/
 
 # Ignore sensitive and generated files in backend
 backend/.env
 backend/package-lock.json
+
+# dependencies
+frontend/node_modules
+
+# next.js
+frontend/.next/
+frontend/out/
+
+# production
+frontend/build
+
+# debug
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+
+# env files
+frontend/.env*
+
+# vercel
+frontend/.vercel
+
+# typescript
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts

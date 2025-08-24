@@ -28,7 +28,7 @@ app.use('/api/user', userRoutes);
 
 // Test route
 app.get('/', (req, res) => {
-  res.send('Prep AI backend running!');
+  res.json({ message: 'Previo backend running!' });
 });
 
 // Start server

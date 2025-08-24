@@ -82,7 +82,7 @@ exports.generateRoadmap = async (req, res) => {
       return res.status(400).json({ error: "Incomplete preferences. Please provide target role and weak topics." });
     }
 
-    console.log(`Generating roadmap for target role: ${targetRole}, preferences: ${JSON.stringify(latestRoadmap.preference)}`);
+    // console.log(`Generating roadmap for target role: ${targetRole}, preferences: ${JSON.stringify(latestRoadmap.preference)}`);
     
 
   try {
@@ -147,5 +147,21 @@ exports.submitAnswer = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+exports.getPreferences = async (req, res) => {
+  const { user } = req;
+
+    // Fetch user preferences (from roadmaps table)
+    const { data: prefRows, error: fetchError } = await req.supabase
+      .from('roadmaps')
+      .select('id,preference,data')
+      .eq('user_id', user.id);
+
+    if (fetchError) {
+      return res.status(400).json({ error: "Error fetching preferences." });
+    }
+
+    res.json({ preferences: prefRows || [] });
+}
 
 

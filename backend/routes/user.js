@@ -22,7 +22,7 @@ router.post('/generate-questions', getUserFromToken, userController.generateQues
 // POST /api/agent2/submit-answer
 router.post('/submit-answer', getUserFromToken, userController.submitAnswer);
 
-
+router.get('/get-preferences', getUserFromToken, userController.getPreferences);
 
 
 module.exports = router;
