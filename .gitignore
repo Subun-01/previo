@@ -3,6 +3,7 @@ backend/node_modules/
 
 # Ignore sensitive and generated files in backend
 backend/.env
+backend/.env*
 backend/package-lock.json
 
 # dependencies

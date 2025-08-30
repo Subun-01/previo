@@ -15,24 +15,31 @@ interface QuestionSetupProps {
   topics: string[]
   onStartSession: (config: {
     topic: string
-    day: number
+    // day: number
     numberOfQuestions: number
     questionType: string
   }) => void
   isLoading?: boolean
+  hasExistingSession?: boolean
+  onResumeSession?: () => void
 }
 
 const questionTypes = [
   { label: "Multiple Choice", value: "multiple-choice" },
   { label: "Short Answer", value: "short-answer" },
-  { label: "Essay", value: "essay" },
-  { label: "Code Review", value: "code-review" },
-  { label: "Problem Solving", value: "problem-solving" },
+  { label: "Long Answer", value: "Long answer" },
+  { label: "Code", value: "code-review" },
 ]
 
-export function QuestionSetup({ topics, onStartSession, isLoading = false }: QuestionSetupProps) {
+export function QuestionSetup({ 
+  topics, 
+  onStartSession, 
+  isLoading = false, 
+  hasExistingSession = false, 
+  onResumeSession 
+}: QuestionSetupProps) {
   const [topic, setTopic] = useState("")
-  const [day, setDay] = useState("")
+  // const [day, setDay] = useState("")
   const [numberOfQuestions, setNumberOfQuestions] = useState("")
   const [questionType, setQuestionType] = useState("")
   const [error, setError] = useState("")
@@ -41,18 +48,18 @@ export function QuestionSetup({ topics, onStartSession, isLoading = false }: Que
     e.preventDefault()
     setError("")
 
-    if (!topic || !day || !numberOfQuestions || !questionType) {
+    if (!topic || !numberOfQuestions || !questionType) {
       setError("Please fill in all fields")
       return
     }
 
-    const dayNum = Number.parseInt(day)
+    // const dayNum = Number.parseInt(day)
     const questionsNum = Number.parseInt(numberOfQuestions)
 
-    if (isNaN(dayNum) || dayNum < 1 || dayNum > 365) {
-      setError("Day must be between 1 and 365")
-      return
-    }
+    // if (isNaN(dayNum) || dayNum < 1 || dayNum > 365) {
+    //   setError("Day must be between 1 and 365")
+    //   return
+    // }
 
     if (isNaN(questionsNum) || questionsNum < 1 || questionsNum > 20) {
       setError("Number of questions must be between 1 and 20")
@@ -61,7 +68,7 @@ export function QuestionSetup({ topics, onStartSession, isLoading = false }: Que
 
     onStartSession({
       topic,
-      day: dayNum,
+      // day: dayNum,
       numberOfQuestions: questionsNum,
       questionType,
     })
@@ -74,6 +81,17 @@ export function QuestionSetup({ topics, onStartSession, isLoading = false }: Que
         <CardDescription>Configure your practice session to get personalized questions</CardDescription>
       </CardHeader>
       <CardContent>
+        {hasExistingSession && (
+          <Alert className="mb-6">
+            <AlertDescription className="flex items-center justify-between">
+              <span>You have an unfinished practice session. Would you like to resume?</span>
+              <Button variant="neon" size="sm" onClick={onResumeSession}>
+                Resume Session
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="topic">Topic</Label>
@@ -92,6 +110,7 @@ export function QuestionSetup({ topics, onStartSession, isLoading = false }: Que
           </div>
 
           <div className="grid grid-cols-2 gap-4">
+          {/*
             <div className="space-y-2">
               <Label htmlFor="day">Day in Roadmap</Label>
               <Input
@@ -103,7 +122,7 @@ export function QuestionSetup({ topics, onStartSession, isLoading = false }: Que
                 value={day}
                 onChange={(e) => setDay(e.target.value)}
               />
-            </div>
+            </div> */}
 
             <div className="space-y-2">
               <Label htmlFor="questions">Number of Questions</Label>
@@ -141,7 +160,7 @@ export function QuestionSetup({ topics, onStartSession, isLoading = false }: Que
             </Alert>
           )}
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full" disabled={isLoading} variant="gradient">
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Play className="mr-2 h-4 w-4" />
             Start Practice Session

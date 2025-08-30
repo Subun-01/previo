@@ -1,15 +1,30 @@
 import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+const cardVariants = cva(
+  "flex flex-col gap-6 rounded-xl border transition-all duration-300",
+  {
+    variants: {
+      variant: {
+        default: "card",
+        glass: "card glass",
+        glow: "card hover:glow-purple",
+        gradient: "card grad-primary text-white border-0",
+      },
+    },
+    defaultVariants: { variant: "default" },
+  }
+)
+
+interface CardProps extends React.ComponentProps<"div">, VariantProps<typeof cardVariants> {}
+
+function Card({ className, variant, ...props }: CardProps) {
   return (
     <div
       data-slot="card"
-      className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
-        className
-      )}
+      className={cn(cardVariants({ variant }), className)}
       {...props}
     />
   )
@@ -19,10 +34,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-header"
-      className={cn(
-        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
-        className
-      )}
+  className={cn("grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6", className)}
       {...props}
     />
   )
@@ -42,7 +54,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-muted-foreground text-sm", className)}
+  className={cn("text-sm opacity-70", className)}
       {...props}
     />
   )

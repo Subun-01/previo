@@ -1,4 +1,4 @@
-const axios = require('axios');
+const { generateJson } = require('../utils/llmClient');
 
 /**
  * Builds a prompt for the LLM to generate a personalized study roadmap.
@@ -37,22 +37,11 @@ Only output the JSON andstrictly follow above format.Do not include any markdown
  */
 async function generateRoadmapWithLLM({ targetRole, weakTopics, durationWeeks = 6 }) {
   const prompt = buildRoadmapPrompt({ targetRole, weakTopics, durationWeeks });
-  const response = await axios.post(
-    'http://localhost:11434/api/generate',
-    {
-      model: "mistral",
-      prompt,
-      stream: false
-    }
-  );
-  let roadmap;
   try {
-    // The response is { response: " ...output..." }
-    roadmap = JSON.parse(response.data.response);
+    return await generateJson({ prompt })
   } catch (e) {
-    throw new Error("Failed to parse roadmap from LLM response. Raw output: " + response.data.response);
+    throw new Error("Failed to parse roadmap from LLM response. " + e.message)
   }
-  return roadmap;
 }
 
 module.exports = { generateRoadmapWithLLM };

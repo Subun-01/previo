@@ -1,26 +1,30 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist } from "next/font/google"
-import { Manrope } from "next/font/google"
+import { Space_Grotesk } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/lib/auth"
+import Navbar from "@/components/navbar"
 
-const geist = Geist({
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-geist",
-})
-
-const manrope = Manrope({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-manrope",
+  variable: "--font-space-grotesk",
 })
 
 export const metadata: Metadata = {
-  title: "Learning Platform",
-  description: "Personalized learning roadmaps and interactive questions",
-  generator: "v0.app",
+  title: "Previo ",
+  description: "AI-powered personalized learning roadmaps with futuristic interface",
+  icons: { 
+    icon: [ 
+    { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" }, 
+    { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" }, 
+    { url: "/favicon.ico" } 
+  ], 
+  apple: [
+    { url: "/apple-touch-icon.png", sizes: "180x180" }
+  ] 
+}, 
+  manifest: "/site.webmanifest"
 }
 
 export default function RootLayout({
@@ -29,9 +33,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${geist.variable} ${manrope.variable} antialiased`}>
-      <body className="font-sans">
-        <AuthProvider>{children}</AuthProvider>
+    <html lang="en" className="dark">
+      <body className={`${spaceGrotesk.variable} antialiased min-h-screen`}>
+        <AuthProvider>
+          <Navbar />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )

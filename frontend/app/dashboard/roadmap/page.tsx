@@ -8,7 +8,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { RoadmapTimeline } from "@/components/roadmap-timeline"
 import { Loader2, Map, RefreshCw, AlertCircle, CheckCircle } from "lucide-react"
 import { apiClient } from "@/lib/api"
-import { log } from "console"
 
 
 interface UserPreferences {

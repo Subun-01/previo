@@ -30,12 +30,15 @@ export function DashboardHeader({ title, description }: DashboardHeaderProps) {
         </Sheet>
 
         <div className="flex-1">
-          <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+          <h1 className="text-xl font-semibold text-gradient">{title}</h1>
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
 
         <div className="flex items-center gap-4">
           <div className="hidden sm:block text-sm text-muted-foreground">{user?.email}</div>
+          <Button variant="glass" size="sm">
+            Profile
+          </Button>
         </div>
       </div>
     </header>

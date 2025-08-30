@@ -112,11 +112,11 @@ exports.generateRoadmap = async (req, res) => {
 };
 
 exports.generateQuestions = async (req, res) => {
-  const { targetRole, topic, roadmap, day, numberOfQuestions, questionType } = req.body;
+  const { targetRole, topic, numberOfQuestions, questionType } = req.body;
   // console.log("calling generate questions with params:", { targetRole, topic, roadmap, day, numberOfQuestions, questionType });
   try {
     const questions = await generateQuestionsLLM({
-      targetRole, topic, roadmap, day,
+      targetRole, topic,
       count: numberOfQuestions, type: questionType
     });
     res.json({ questions });
@@ -126,7 +126,7 @@ exports.generateQuestions = async (req, res) => {
 };
 
 exports.submitAnswer = async (req, res) => {
-  const { question, answer, topic, day, questionType, roadmap, targetRole} = req.body;
+  const { question, answer, topic, questionType, targetRole} = req.body;
   const { user } = req;
   try {
     const feedbackObj = await getInstantFeedbackLLM(targetRole,question, answer);

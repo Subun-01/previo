@@ -7,16 +7,19 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { QuestionSetup } from "@/components/question-setup"
 import { QuestionCard } from "@/components/question-card"
-import { Badge } from "@/components/ui/badge"
-import { Trophy, RotateCcw, AlertCircle, BookOpen } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 import { apiClient } from "@/lib/api"
 
 interface Question {
   id: string
   question: string
-  topic: string
-  difficulty: "easy" | "medium" | "hard"
-  type: string
+  options?: string[]
+  type: "mcq" | "short-answer" | "long-answer" | "code"
+  answer?: string
+  feedback?: {
+    feedback: string
+    score: number
+  }
 }
 
 interface SessionConfig {
@@ -26,49 +29,94 @@ interface SessionConfig {
   questionType: string
 }
 
-interface SessionResults {
-  totalQuestions: number
-  averageScore: number
-  scores: number[]
-  topic: string
-}
-
 export default function QuestionsPage() {
-  const [preferences, setPreferences] = useState<any>(null)
-  const [roadmap, setRoadmap] = useState<any>(null)
+  const [preferences, setPreferences] = useState<any[]>([])
+  const [availableTopics, setAvailableTopics] = useState<string[]>([])
   const [sessionConfig, setSessionConfig] = useState<SessionConfig | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [sessionResults, setSessionResults] = useState<SessionResults | null>(null)
-  const [scores, setScores] = useState<number[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [hasExistingSession, setHasExistingSession] = useState(false)
 
   useEffect(() => {
-    // Load preferences and roadmap from localStorage
-    const savedPreferences = localStorage.getItem("user_preferences")
-    const savedRoadmap = localStorage.getItem("user_roadmap")
-
-    if (savedPreferences) {
-      try {
-        setPreferences(JSON.parse(savedPreferences))
-      } catch (err) {
-        console.error("Failed to parse preferences:", err)
-      }
-    }
-
-    if (savedRoadmap) {
-      try {
-        setRoadmap(JSON.parse(savedRoadmap))
-      } catch (err) {
-        console.error("Failed to parse roadmap:", err)
-      }
-    }
+    fetchPreferences()
+    loadSavedSession()
   }, [])
 
+  const loadSavedSession = () => {
+    try {
+      const savedConfig = localStorage.getItem("questionSession_config")
+      const savedQuestions = localStorage.getItem("questionSession_questions")
+      
+      if (savedConfig && savedQuestions) {
+        const config = JSON.parse(savedConfig)
+        const questions = JSON.parse(savedQuestions)
+        setHasExistingSession(true)
+        // Auto-resume if there are already answered questions
+        const hasAnsweredQuestions = questions.some((q: Question) => q.answer)
+        if (hasAnsweredQuestions) {
+          setSessionConfig(config)
+          setQuestions(questions)
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load saved session:", err)
+    }
+  }
+
+  const resumeSession = () => {
+    try {
+      const savedConfig = localStorage.getItem("questionSession_config")
+      const savedQuestions = localStorage.getItem("questionSession_questions")
+      
+      if (savedConfig && savedQuestions) {
+        setSessionConfig(JSON.parse(savedConfig))
+        setQuestions(JSON.parse(savedQuestions))
+        setHasExistingSession(false)
+      }
+    } catch (err) {
+      console.error("Failed to resume session:", err)
+    }
+  }
+
+  const saveSession = (config: SessionConfig, questions: Question[]) => {
+    try {
+      localStorage.setItem("questionSession_config", JSON.stringify(config))
+      localStorage.setItem("questionSession_questions", JSON.stringify(questions))
+    } catch (err) {
+      console.error("Failed to save session:", err)
+    }
+  }
+
+  const clearSavedSession = () => {
+    localStorage.removeItem("questionSession_config")
+    localStorage.removeItem("questionSession_questions")
+    // Clear all draft answers
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith("draft_answer_")) {
+        localStorage.removeItem(key)
+      }
+    })
+    setHasExistingSession(false)
+  }
+
+  const fetchPreferences = async () => {
+    try {
+      const response = await apiClient.getPreferences()
+      const prefArr = response && response.data && Array.isArray(response.data.preferences)
+        ? response.data.preferences.map(item => item.preference)
+        : []
+      
+      setPreferences(prefArr)
+      setAvailableTopics(prefArr.map(item => item.weakTopics).flat())
+    } catch (err) {
+      console.error("Failed to fetch preferences:", err)
+    }
+  }
+
   const startSession = async (config: SessionConfig) => {
-    if (!preferences || !roadmap) {
-      setError("Please set your preferences and generate a roadmap first")
+    if (!preferences.length) {
+      setError("Please set your preferences first")
       return
     }
 
@@ -78,29 +126,30 @@ export default function QuestionsPage() {
 
     try {
       const response = await apiClient.generateQuestions(
-        preferences.targetRole,
+        preferences[0].targetRole || "Developer",
         config.topic,
-        roadmap,
-        config.day,
+        // config.day,
         config.numberOfQuestions,
         config.questionType,
       )
+      // console.log(response)
 
       if (response.error) {
         setError(response.error)
         setSessionConfig(null)
       } else if (response.data) {
-        // Transform API response to match our Question interface
-        const transformedQuestions: Question[] = response.data.questions.map((q: any, index: number) => ({
-          id: `q-${index}`,
-          question: q.question || q.text || q,
-          topic: config.topic,
-          difficulty: q.difficulty || "medium",
-          type: config.questionType,
-        }))
+        const transformedQuestions: Question[] = response.data.questions.map((q: any, index: number) => {
+          // console.log('Question data:', q) // Debug log to see the structure
+          return {
+            id: `q-${index}`,
+            question: q.question || q.text || q,
+            options: q.choices || q.options || undefined, // Backend uses 'choices' for MCQ options
+            type: mapQuestionType(config.questionType),
+          }
+        })
         setQuestions(transformedQuestions)
-        setCurrentQuestionIndex(0)
-        setScores([])
+        // Save the session to localStorage
+        saveSession(config, transformedQuestions)
       }
     } catch (err) {
       setError("Failed to generate questions. Please try again.")
@@ -110,72 +159,55 @@ export default function QuestionsPage() {
     setIsLoading(false)
   }
 
-  const submitAnswer = async (answer: string): Promise<{ feedback: string; score: number } | null> => {
-    if (!sessionConfig || !preferences || !roadmap) return null
+  const mapQuestionType = (type: string): "mcq" | "short-answer" | "long-answer" | "code" => {
+    switch (type) {
+      case "multiple-choice": return "mcq"
+      case "short-answer": return "short-answer"
+      case "Long answer": return "long-answer"
+      case "code-review": 
+      case "problem-solving": return "code"
+      default: return "short-answer"
+    }
+  }
 
-    const currentQuestion = questions[currentQuestionIndex]
+  const submitAnswer = async (questionId: string, answer: string) => {
+    const questionIndex = questions.findIndex(q => q.id === questionId)
+    if (questionIndex === -1 || !sessionConfig || !preferences.length) return
 
     try {
       const response = await apiClient.submitAnswer(
-        currentQuestion.question,
+        questions[questionIndex].question,
         answer,
         sessionConfig.topic,
-        sessionConfig.day,
+        // sessionConfig.day,
         sessionConfig.questionType,
-        roadmap,
-        preferences.targetRole,
+        // "roadmap-placeholder",
+        preferences[0].targetRole || "Developer",
       )
 
-      if (response.error) {
-        console.error("Failed to submit answer:", response.error)
-        return { feedback: "Failed to get feedback. Please try again.", score: 0 }
-      }
-
       if (response.data) {
-        const feedback = response.data.feedback
-        setScores((prev) => [...prev, feedback.score])
-        return feedback
+        const updatedQuestions = [...questions]
+        updatedQuestions[questionIndex] = {
+          ...updatedQuestions[questionIndex],
+          answer,
+          feedback: response.data.feedback
+        }
+        setQuestions(updatedQuestions)
+        // Update localStorage with new answer and feedback
+        if (sessionConfig) {
+          saveSession(sessionConfig, updatedQuestions)
+        }
       }
     } catch (err) {
-      console.error("Error submitting answer:", err)
-    }
-
-    return { feedback: "Failed to get feedback. Please try again.", score: 0 }
+    console.error("Error submitting answer:", err)
   }
+}
 
-  const nextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1)
-    } else {
-      // Session complete
-      const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length
-      setSessionResults({
-        totalQuestions: questions.length,
-        averageScore,
-        scores,
-        topic: sessionConfig?.topic || "",
-      })
-    }
-  }
-
-  const resetSession = () => {
+  const endSession = () => {
     setSessionConfig(null)
     setQuestions([])
-    setCurrentQuestionIndex(0)
-    setSessionResults(null)
-    setScores([])
-    setError("")
+    clearSavedSession()
   }
-
-  // Mock topics from preferences or default list
-  const availableTopics = preferences?.weakTopics || [
-    "javascript",
-    "react",
-    "nodejs",
-    "python",
-    "algorithms",
-    "system-design",
-  ]
 
   return (
     <>
@@ -186,7 +218,7 @@ export default function QuestionsPage() {
 
       <main className="flex-1 overflow-y-auto p-6">
         <div className="max-w-4xl mx-auto space-y-6">
-          {!preferences ? (
+          {!preferences.length ? (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -194,92 +226,41 @@ export default function QuestionsPage() {
                   Setup Required
                 </CardTitle>
                 <CardDescription>
-                  You need to set your preferences and generate a roadmap before practicing questions.
+                  You need to set your preferences before practicing questions.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Button asChild>
-                    <a href="/dashboard/preferences">Set Preferences</a>
-                  </Button>
-                  <Button variant="outline" asChild>
-                    <a href="/dashboard/roadmap">Generate Roadmap</a>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : sessionResults ? (
-            // Session Results
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-yellow-500" />
-                  Session Complete!
-                </CardTitle>
-                <CardDescription>Great job! Here's how you performed in this practice session.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-primary">{sessionResults.totalQuestions}</p>
-                    <p className="text-sm text-muted-foreground">Questions Answered</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-primary">{Math.round(sessionResults.averageScore)}%</p>
-                    <p className="text-sm text-muted-foreground">Average Score</p>
-                  </div>
-                  <div className="text-center">
-                    <Badge variant="secondary" className="text-lg px-3 py-1">
-                      {sessionResults.topic.replace("-", " ")}
-                    </Badge>
-                    <p className="text-sm text-muted-foreground mt-1">Topic Practiced</p>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-3">Individual Scores</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                    {sessionResults.scores.map((score, index) => (
-                      <div key={index} className="text-center p-2 bg-muted rounded">
-                        <p className="font-medium">Q{index + 1}</p>
-                        <p className="text-sm text-muted-foreground">{score}%</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Button onClick={resetSession} className="flex-1">
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    Start New Session
-                  </Button>
-                  <Button variant="outline" onClick={resetSession} className="flex-1 bg-transparent">
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Practice Same Topic
-                  </Button>
-                </div>
+                <Button asChild>
+                  <a href="/dashboard/preferences">Set Preferences</a>
+                </Button>
               </CardContent>
             </Card>
           ) : sessionConfig && questions.length > 0 ? (
-            // Active Session
+            // Active Session - Show all questions
             <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Practice Session</CardTitle>
-                  <CardDescription>
-                    Topic: {sessionConfig.topic.replace("-", " ")} • Day {sessionConfig.day} • Type:{" "}
-                    {sessionConfig.questionType.replace("-", " ")}
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <QuestionCard
-                question={questions[currentQuestionIndex]}
-                questionNumber={currentQuestionIndex + 1}
-                totalQuestions={questions.length}
-                onSubmitAnswer={submitAnswer}
-                onNext={nextQuestion}
-              />
+            <Card variant="glass">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Practice Session</CardTitle>
+                    <CardDescription>
+                      Topic: {sessionConfig.topic} • Day {sessionConfig.day} • Type: {sessionConfig.questionType}
+                    </CardDescription>
+                  </div>
+                  <Button variant="neon" onClick={endSession}>
+                    End Session
+                  </Button>
+                </div>
+              </CardHeader>
+            </Card>              {questions.map((question, index) => (
+                <QuestionCard
+                  key={question.id}
+                  question={question}
+                  questionNumber={index + 1}
+                  totalQuestions={questions.length}
+                  onSubmitAnswer={(answer) => submitAnswer(question.id, answer)}
+                />
+              ))}
             </div>
           ) : (
             // Setup Form
@@ -290,21 +271,13 @@ export default function QuestionsPage() {
                 </Alert>
               )}
 
-              <QuestionSetup topics={availableTopics} onStartSession={startSession} isLoading={isLoading} />
-
-              {/* Recent Sessions (placeholder) */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Practice Sessions</CardTitle>
-                  <CardDescription>Your latest practice activities and performance</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8 text-muted-foreground">
-                    <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No practice sessions yet. Start your first session above!</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <QuestionSetup 
+                topics={availableTopics} 
+                onStartSession={startSession} 
+                isLoading={isLoading}
+                hasExistingSession={hasExistingSession && !sessionConfig}
+                onResumeSession={resumeSession}
+              />
             </div>
           )}
         </div>

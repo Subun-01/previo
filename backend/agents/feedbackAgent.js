@@ -1,4 +1,4 @@
-const axios = require('axios');
+const { generateJson } = require('../utils/llmClient');
 
 /**
  * Get quick feedback for a user's answer using LLM.
@@ -18,15 +18,8 @@ Evaluate the answer:
 Return as JSON: { "verdict": "...", "feedback": "...", "score": ... }
 strictly follow the format without any additional text or explanation. Do not include any markdown or code blocks or  whitespace before or after the JSON object.
 `.trim();
-  const response = await axios.post(
-    'http://localhost:11434/api/generate',
-    {
-      model: "mistral",
-      prompt,
-      stream: false
-    }
-  );
-  return JSON.parse(response.data.response);
+  const data = await generateJson({ prompt })
+  return data
 }
 
 module.exports = { getInstantFeedbackLLM };

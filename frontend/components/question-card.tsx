@@ -1,35 +1,33 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Progress } from "@/components/ui/progress"
+import { Badge } from "@/components/ui/badge"
 import { CheckCircle, XCircle, Clock, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Question {
   id: string
   question: string
-  topic: string
-  difficulty: "easy" | "medium" | "hard"
-  type: string
-}
-
-interface Feedback {
-  feedback: string
-  score: number
+  options?: string[]
+  type: "mcq" | "short-answer" | "long-answer" | "code"
+  answer?: string
+  feedback?: {
+    feedback: string
+    score: number
+  }
 }
 
 interface QuestionCardProps {
   question: Question
   questionNumber: number
   totalQuestions: number
-  onSubmitAnswer: (answer: string) => Promise<Feedback | null>
-  onNext: () => void
-  className?: string
+  onSubmitAnswer: (answer: string) => Promise<void>
 }
 
 export function QuestionCard({
@@ -37,63 +35,147 @@ export function QuestionCard({
   questionNumber,
   totalQuestions,
   onSubmitAnswer,
-  onNext,
-  className,
 }: QuestionCardProps) {
   const [answer, setAnswer] = useState("")
-  const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isSubmitted, setIsSubmitted] = useState(false)
+  const [hasDraft, setHasDraft] = useState(false)
+  const isAnswered = !!question.answer
 
-  const handleSubmit = async () => {
-    if (!answer.trim()) return
+  // Load saved draft answer on mount
+  useEffect(() => {
+    const savedDraft = localStorage.getItem(`draft_answer_${question.id}`)
+    if (savedDraft && !isAnswered) {
+      setAnswer(savedDraft)
+      setHasDraft(true)
+    } else if (question.answer) {
+      setAnswer(question.answer)
+      setHasDraft(false)
+    }
+  }, [question.id, question.answer, isAnswered])
 
-    setIsLoading(true)
-    const result = await onSubmitAnswer(answer)
-    setFeedback(result)
-    setIsSubmitted(true)
-    setIsLoading(false)
-  }
-
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case "easy":
-        return "bg-green-100 text-green-800 border-green-200"
-      case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      case "hard":
-        return "bg-red-100 text-red-800 border-red-200"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
+  // Save draft answer as user types
+  const handleAnswerChange = (value: string) => {
+    setAnswer(value)
+    if (!isAnswered) {
+      localStorage.setItem(`draft_answer_${question.id}`, value)
+      setHasDraft(!!value.trim())
     }
   }
 
+  const clearDraftAnswer = () => {
+    localStorage.removeItem(`draft_answer_${question.id}`)
+    setHasDraft(false)
+  }
+
+  const handleSubmit = async () => {
+    if (!answer.trim() || isAnswered) return
+
+    setIsLoading(true)
+    await onSubmitAnswer(answer)
+    clearDraftAnswer() // Clear draft after successful submission
+    setIsLoading(false)
+  }
+
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600"
-    if (score >= 60) return "text-yellow-600"
+    if (score >= 8) return "text-green-600"
+    if (score >= 5) return "text-yellow-600"
     return "text-red-600"
   }
 
   const getScoreIcon = (score: number) => {
-    if (score >= 70) return <CheckCircle className="h-5 w-5 text-green-600" />
+    if (score >= 7) return <CheckCircle className="h-5 w-5 text-green-600" />
     return <XCircle className="h-5 w-5 text-red-600" />
   }
 
+  const renderInputField = () => {
+    switch (question.type) {
+      case "mcq":
+        // Debug log for MCQ options
+        // console.log('MCQ Question:', question.question, 'Options:', question.options, 'Full question object:', question)
+        
+        if (!question.options || question.options.length === 0) {
+          return (
+            <div className="space-y-2">
+              <Alert variant="destructive">
+                <AlertDescription>
+                  No options available for this multiple choice question. The question may not have been generated properly.
+                </AlertDescription>
+              </Alert>
+              <Textarea
+                placeholder="Please type your answer instead..."
+                value={answer}
+                onChange={(e) => handleAnswerChange(e.target.value)}
+                disabled={isAnswered}
+                className="min-h-20"
+              />
+            </div>
+          )
+        }
+        
+        return (
+          <RadioGroup value={answer} onValueChange={handleAnswerChange} disabled={isAnswered}>
+            {question.options.map((option, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <RadioGroupItem value={option} id={`option-${index}`} />
+                <Label htmlFor={`option-${index}`}>{option}</Label>
+              </div>
+            ))}
+          </RadioGroup>
+        )
+      case "code":
+        return (
+          <Textarea
+            placeholder="Write your code here..."
+            value={answer}
+            onChange={(e) => handleAnswerChange(e.target.value)}
+            disabled={isAnswered}
+            className="min-h-40 font-mono"
+          />
+        )
+      case "long-answer":
+        return (
+          <Textarea
+            placeholder="Write your detailed answer here..."
+            value={answer}
+            onChange={(e) => handleAnswerChange(e.target.value)}
+            disabled={isAnswered}
+            className="min-h-32"
+          />
+        )
+      default: // short-answer
+        return (
+          <Textarea
+            placeholder="Type your answer here..."
+            value={answer}
+            onChange={(e) => handleAnswerChange(e.target.value)}
+            disabled={isAnswered}
+            className="min-h-20"
+          />
+        )
+    }
+  }
+
   return (
-    <Card className={cn("w-full max-w-3xl mx-auto", className)}>
+    <Card variant="glass" className="w-full">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Badge variant="outline" className={getDifficultyColor(question.difficulty)}>
-              {question.difficulty}
-            </Badge>
-            <Badge variant="secondary">{question.topic}</Badge>
+            <Badge variant="outline">{question.type}</Badge>
+            {hasDraft && !isAnswered && (
+              <Badge variant="secondary" className="text-xs">
+                Draft Saved
+              </Badge>
+            )}
+            {isAnswered && (
+              <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                Submitted
+              </Badge>
+            )}
           </div>
           <div className="text-sm text-muted-foreground">
             Question {questionNumber} of {totalQuestions}
           </div>
         </div>
-        <Progress value={(questionNumber / totalQuestions) * 100} className="h-2" />
       </CardHeader>
 
       <CardContent className="space-y-6">
@@ -104,25 +186,18 @@ export function QuestionCard({
 
         <div className="space-y-4">
           <div>
-            <label htmlFor="answer" className="text-sm font-medium text-foreground mb-2 block">
+            <label className="text-sm font-medium text-foreground mb-2 block">
               Your Answer
             </label>
-            <Textarea
-              id="answer"
-              placeholder="Type your answer here..."
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              disabled={isSubmitted}
-              className="min-h-32"
-            />
+            {renderInputField()}
           </div>
 
-          {!isSubmitted ? (
-            <Button onClick={handleSubmit} disabled={!answer.trim() || isLoading} className="w-full">
+          {!isAnswered ? (
+            <Button onClick={handleSubmit} disabled={!answer.trim() || isLoading} className="w-full" variant="gradient">
               {isLoading ? (
                 <>
                   <Clock className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing Answer...
+                  Submitting...
                 </>
               ) : (
                 <>
@@ -133,26 +208,37 @@ export function QuestionCard({
             </Button>
           ) : (
             <div className="space-y-4">
-              {feedback && (
+              <Alert className="border-l-4 border-l-blue-500">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-blue-800">Submitted Answer</h4>
+                    <p className="text-sm text-blue-700 mt-1">{question.answer}</p>
+                  </div>
+                </div>
+              </Alert>
+
+              {question.feedback && (
                 <Alert className="border-l-4 border-l-primary">
                   <div className="flex items-start gap-3">
-                    {getScoreIcon(feedback.score)}
+                    {getScoreIcon(question.feedback.score)}
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-semibold">Feedback</h4>
-                        <span className={cn("font-bold text-lg", getScoreColor(feedback.score))}>
-                          {feedback.score}%
+                        <span className={cn("font-bold text-lg", getScoreColor(question.feedback.score))}>
+                          {question.feedback.score} 
                         </span>
+                          <span>
+                            out of 10
+                          </span>
                       </div>
-                      <AlertDescription className="text-sm leading-relaxed">{feedback.feedback}</AlertDescription>
+                      <AlertDescription className="text-sm leading-relaxed">
+                        {question.feedback.feedback}
+                      </AlertDescription>
                     </div>
                   </div>
                 </Alert>
               )}
-
-              <Button onClick={onNext} className="w-full">
-                {questionNumber === totalQuestions ? "Finish Session" : "Next Question"}
-              </Button>
             </div>
           )}
         </div>

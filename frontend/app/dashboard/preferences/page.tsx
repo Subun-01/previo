@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -50,7 +50,16 @@ const weakTopicsOptions = [
   { label: "Database Design", value: "database-design" },
 ]
 
+interface UserPreferences {
+  targetRole: string;
+  weakTopics: string[];
+  durationWeeks: number | 6; // Default to 6 if not provided
+}
+
+
 export default function PreferencesPage() {
+
+  const [allPreferences, setAllPreferences] = useState<UserPreferences[]>([])
   const [targetRole, setTargetRole] = useState("")
   const [weakTopics, setWeakTopics] = useState<string[]>([])
   const [durationWeeks, setDurationWeeks] = useState("")
@@ -84,14 +93,6 @@ export default function PreferencesPage() {
         setError(response.error)
       } else {
         setSuccess(true)
-        // localStorage.setItem(
-        //   "user_preferences",
-        //   JSON.stringify({
-        //     targetRole,
-        //     weakTopics,
-        //     durationWeeks: duration,
-        //   }),
-        // )
       }
     } catch (err) {
       setError("Failed to save preferences. Please try again.")
@@ -99,6 +100,26 @@ export default function PreferencesPage() {
 
     setIsLoading(false)
   }
+
+  useEffect(() => {
+    async function fetchPreferences() {
+      try {
+        const response = await apiClient.getPreferences();
+        const prefArr = response && response.data && Array.isArray(response.data.preferences)
+          ? response.data.preferences.map(item => item.preference)
+          : [];
+      
+          
+    setAllPreferences(prefArr);
+        // console.log(prefArr);
+        
+      } catch (err) {
+        console.error("Failed to fetch preferences:", err);
+      }
+    }
+    fetchPreferences();
+  },[success])
+
 
   return (
     <>
@@ -188,6 +209,38 @@ export default function PreferencesPage() {
               </form>
             </CardContent>
           </Card>
+
+          {allPreferences.length > 0 && (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Saved Preferences</CardTitle>
+                <CardDescription>Your previously saved learning preferences</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3">
+                  {allPreferences.map((pref, idx) => (
+                    <div key={idx} className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-3 rounded-md border">
+                      <div className="space-y-1">
+                        <p className="font-medium">
+                          {(() => {
+                            const match = targetRoleOptions.find(r => r.value === pref.targetRole)
+                            return match ? match.label : pref.targetRole
+                          })()}
+                        </p>
+                        <p className="text-sm opacity-70">
+                          {pref.weakTopics.length} topics · {pref.durationWeeks} week{Number(pref.durationWeeks) === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                      <div className="text-sm opacity-80 md:text-right">
+                        {pref.weakTopics.slice(0, 4).join(", ")}
+                        {pref.weakTopics.length > 4 && " …"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {success && (
             <Card className="mt-6">

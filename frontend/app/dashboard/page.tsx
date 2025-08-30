@@ -1,9 +1,7 @@
 "use client"
 
 import { DashboardHeader } from "@/components/dashboard-header"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/lib/auth"
 import { BookOpen, Target, TrendingUp, Clock, Settings } from "lucide-react"
 import Link from "next/link"

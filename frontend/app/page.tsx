@@ -11,11 +11,11 @@ export default function HomePage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
 
-  useEffect(() => {
-    if (!isLoading && user) {
-      router.push("/dashboard")
-    }
-  }, [user, isLoading, router])
+  // useEffect(() => {
+  //   if (!isLoading && user) {
+  //     router.push("/dashboard")
+  //   }
+  // }, [user, isLoading, router])
 
   if (isLoading) {
     return (
@@ -26,11 +26,11 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-16">
+    <div className="min-h-screen">
+      <div className="container-max py-16">
         <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">Master Your Learning Journey</h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+          <h1 className="text-4xl md:text-6xl font-bold text-gradient mb-6">Master Your Learning Journey</h1>
+          <p className="text-xl opacity-70 mb-8 max-w-2xl mx-auto">
             Get personalized roadmaps, practice with targeted questions, and track your progress towards your career
             goals.
           </p>
@@ -45,9 +45,9 @@ export default function HomePage() {
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          <Card>
+      <Card>
             <CardHeader>
-              <Target className="h-8 w-8 text-primary mb-2" />
+        <Target className="h-8 w-8 text-gradient mb-2" />
               <CardTitle>Personalized Roadmaps</CardTitle>
             </CardHeader>
             <CardContent>
@@ -55,9 +55,9 @@ export default function HomePage() {
             </CardContent>
           </Card>
 
-          <Card>
+      <Card>
             <CardHeader>
-              <Brain className="h-8 w-8 text-primary mb-2" />
+        <Brain className="h-8 w-8 text-gradient mb-2" />
               <CardTitle>Smart Questions</CardTitle>
             </CardHeader>
             <CardContent>
@@ -67,9 +67,9 @@ export default function HomePage() {
             </CardContent>
           </Card>
 
-          <Card>
+      <Card>
             <CardHeader>
-              <TrendingUp className="h-8 w-8 text-primary mb-2" />
+        <TrendingUp className="h-8 w-8 text-gradient mb-2" />
               <CardTitle>Progress Tracking</CardTitle>
             </CardHeader>
             <CardContent>
@@ -79,9 +79,9 @@ export default function HomePage() {
             </CardContent>
           </Card>
 
-          <Card>
+      <Card>
             <CardHeader>
-              <BookOpen className="h-8 w-8 text-primary mb-2" />
+        <BookOpen className="h-8 w-8 text-gradient mb-2" />
               <CardTitle>Focused Learning</CardTitle>
             </CardHeader>
             <CardContent>

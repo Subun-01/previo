@@ -1,4 +1,4 @@
-const axios = require('axios');
+const { generateJson } = require('../utils/llmClient');
 
 /**
  * Generate questions for a user using LLM.
@@ -6,24 +6,41 @@ const axios = require('axios');
  * @returns {Array} - List of generated questions.
  */
 async function generateQuestionsLLM(params) {
-  const { targetRole, topic, roadmap, day, count, type } = params;
+  const { targetRole, topic, count, type } = params;
   let qtype = type || "mixed"; // Default to mixed if not specified
   const prompt = `
-You are an Expert technical Interview Coach. Generate well structered ${count} ${qtype} questions on "${topic}" for a ${targetRole}, for day ${day} of this roadmap: ${roadmap}.
-If type is "mixed", randomize question types (MCQ, short answer, logic, code, predict output, etc.).
-Output as JSON array: [{ "question": "...", "type": "...", "choices": ["..."], "answer": "..." }, ...]
-If MCQ, include "choices" and "answer". If not, omit.
-strictly follow the format without any additional text or explanation. Do not include any markdown or code blocks or whitespace before or after the JSON object.
-`.trim();
-  const response = await axios.post(
-    'http://localhost:11434/api/generate',
-    {
-      model: "mistral",
-      prompt,
-      stream: false
-    }
-  );
-  return JSON.parse(response.data.response);
+You are an expert technical interview question generator.
+
+Task:
+- Generate exactly ${count} questions on "${topic}" for a ${targetRole}.
+- The requested question type is "${qtype}".
+
+Type rules:
+- Allowed types: "mcq", "short-answer", "long-answer", "code", "logic", "predict-output".
+- If "${qtype}" equals "mixed" (case-insensitive), choose a random type from the allowed list for each item.
+- Otherwise, set "type" to "${qtype}" for every item.
+
+Output format (JSON only):
+- Return ONLY a JSON array (no prose, no markdown, no code fences).
+- Each item MUST be an object with:
+  - "question": string
+  - "type": one of the allowed types
+  - If "type" === "mcq":
+      - "choices": an array of exactly 4 distinct, plausible options (strings)
+      - "answer": a string that exactly matches one of the choices
+  - If "type" !== "mcq": do NOT include "choices" or "answer".
+- Use valid JSON (double quotes, no trailing commas).
+- Produce exactly ${count} items.
+
+Constraints:
+- Keep questions clear, technically accurate, and appropriate for a ${targetRole} at the specified roadmap day.
+- Do NOT include explanations, hints, rationales, or any fields other than those specified.
+`.trim();;
+  const data = await generateJson({
+    prompt,
+    options: { temperature: 0.3, top_p: 0.9 },
+  })
+  return data
 }
 
 module.exports = {generateQuestionsLLM};

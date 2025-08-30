@@ -70,8 +70,6 @@ class ApiClient {
   async generateQuestions(
     targetRole: string,
     topic: string,
-    roadmap: any,
-    day: number,
     numberOfQuestions: number,
     questionType: string,
   ) {
@@ -80,8 +78,6 @@ class ApiClient {
       body: JSON.stringify({
         targetRole,
         topic,
-        roadmap,
-        day,
         numberOfQuestions,
         questionType,
       }),
@@ -92,9 +88,9 @@ class ApiClient {
     question: string,
     answer: string,
     topic: string,
-    day: number,
+    // day: number,
     questionType: string,
-    roadmap: any,
+    // roadmap: any,
     targetRole: string,
   ) {
     return this.request<{ feedback: { feedback: string; score: number } }>("/api/user/submit-answer", {
@@ -103,9 +99,9 @@ class ApiClient {
         question,
         answer,
         topic,
-        day,
+        // day,
         questionType,
-        roadmap,
+        // roadmap,
         targetRole,
       }),
     })
